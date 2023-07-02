@@ -1,0 +1,1 @@
+d_phi_0 = Gaussian(mu=0, sigma=0.01, name='d_phi_0', latex_label='$\\delta\\varphi_0$', unit=None, boundary=None)

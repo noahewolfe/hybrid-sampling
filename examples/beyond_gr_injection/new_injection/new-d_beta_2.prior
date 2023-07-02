@@ -1,0 +1,1 @@
+d_beta_2 = Uniform(minimum=-5, maximum=5, name='d_beta_2', latex_label='$\\delta\\beta_2$', unit=None, boundary=None)
