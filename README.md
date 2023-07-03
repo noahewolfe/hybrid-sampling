@@ -27,7 +27,7 @@ Conceptually, here are the things needed to setup a bilby_pipe-style hybrid samp
     - In the example, this is `config.ini`.
 - Use a waveform model that assumes the most general form of the problem you want to study (e.g. to the `frequency-domain-source-model` argument).
     - For testing GR we use the frequency-domain source model `bilby_tgr.source.generic_non_gr_binary_black_hole` which allows for generic, phenomeological deviations from GR.
-    - 
+    - Note that you can specify the `waveform-approximant` of your choice.
 - Supply a `.prior` file to the `prior-file` argument under the "simple" waveform model you want to assume in the first step of sampling.
     - In the example, this is `modified.prior`, which is a standard set of priors for a binary black hole merger plus all of the phenomeological GR deviations set to zero.
     - To emphasize, **it is under these prior assumptions that `dynesty` samples in to generate the initial points for the second step of sampling with `ptemcee`.**
@@ -41,16 +41,14 @@ Conceptually, here are the things needed to setup a bilby_pipe-style hybrid samp
     - Listed in a file specified by `hybrid-runs`.
     - In the example, this is `queue.txt`.
     - **For each combination of parameter + overlap cut, you will get a new `ptemcee` analysis** (Currently, the code does not allow for specifying multiple new parameters to analyze simultaneously.)
-- Finally, make sure to include the following arguments in the 
-
-See `bilby_pipe_build_hybrid --help` for more detail.
+- Finally, make sure to include the following arguments in the configuration file, or else the second step of the hybrid analysis will not be run:
+```
+single-postprocessing-executable=bilby_pipe_hybrid
+single-postprocessing-arguments=$RESULT
+```
 
 Note that `bilby_pipe_build_hybrid` **accepts all of the same command-line arguments
-and configuration files as `bilby_pipe`**; the main difference is that `bilby_pipe_build_hybrid` also looks for three additional command-line arguments,
-- `hybrid-seed-priors-dir`: path to a directory containing distributions from which to draw initial points for any parameters not sampled in during the `dynesty` analysis step. In the beyond-GR injection example, this is `init_injection`.
-- `hybrid-priors-dir`: path to a directory containing prior distributions for parameters not sampled in during the `dynesty` analysis step. In the example, this is `new_injection`.
-- `hybrid-runs`: list of additional parameters to sample in during the `ptemcee` step, and the prior overlap cut to apply on that parameter. In the example, this is `queue.txt`.
-- `hybrid-label`: custom label to differentiate the `ptemcee` analyses from the `dynesty` analysis.
+and configuration files as `bilby_pipe`** but looks for three additional command-line arguments, `hybrid-seed-priors-dir`, `hybrid-priors-dir`, `hybrid-runs`, and `hybrid-label`, see `bilby_pipe_build_hybrid --help` for more detail on those arguments.
 
 # Citation
 
