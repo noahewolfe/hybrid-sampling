@@ -15,13 +15,6 @@ matplotlib.use("agg")
 # fmt: on
 
 
-def component_masses_as_dict(chirp_mass, mass_ratio):
-    mass_1, mass_2 = chirp_mass_and_mass_ratio_to_component_masses(
-        chirp_mass, mass_ratio
-    )
-    return dict(mass_1=mass_1, mass_2=mass_2)
-
-
 def tempered_weights(nested_samples, beta):
     """
 
@@ -92,9 +85,9 @@ def set_tempered_nested_samples(
 ):
     """
 
-    Return an array (or dictionary) of tempered nested samples.
+    Sets, in place, an array (or dictionary) of tempered nested samples.
 
-    In particular, return an array (or dictionary) representing a subsampling of
+    In particular, set an array (or dictionary) representing a subsampling of
     nested samples, where the probability of including a particular sample
     is determined by the associated nested sampling weights which have been
     raised to the power of a "temperature" beta.
@@ -171,68 +164,63 @@ class HybridInput(DataAnalysisInput):
         return likelihood, priors
 
     def _set_pos0_within_prior(
-        self, pos0, nested_samples, parameter_keys, temperatures, nwalkers
+        self, pos0, nested_samples, likelihood, parameter_keys, temperatures, nwalkers
     ):
+        """
+        
+        """
+        
         logger.info(
             "Adjusting pos0 seed samples to fit within prior/overlap constraints"
         )
 
+        old_parameters = likelihood.parameters
+
         ntemps = len(temperatures)
         extra_init_prior_dict = bilby.core.prior.PriorDict(self.extra_initialization)
 
-        # try to generate waveforms to see if we're w/in the overlap or not
-        # generated at each temperature, for each walker
-        # so this has the shape (ntemps, nwalkers)
-        # TODO: change this to an initial eval, so we might not
-        # even have to run the below loop! After testing, however.
-        test_waveforms = np.empty((ntemps, nwalkers), dtype=object)
+        test_log_like_ratio = np.full(
+            shape=(ntemps, nwalkers),
+            fill_value=-np.inf
+        )
 
-        # get the indices of waveforms that came back 'None'
-        # we'll have the adjust the parameters on those
-        none_indices = np.nonzero(test_waveforms == None)  # noqa: E711
-
-        # TODO: in future, instead of checking if the waveform is none,
-        # check if the log_likelihood is NOT -inf
-        # more robust: allows for more generic tests
+        inf_indices = np.nonzero(test_log_like_ratio == -np.inf)
+        
         tries = 0
-        while none_indices[0].shape[0] > 0:
-            nonetemps = np.unique(none_indices[0])
-            nonewalkers = np.unique(none_indices[1])
+        while inf_indices[0].shape[0] > 0:
+            badtemps = np.unique(inf_indices[0])
+            badwalkers = np.unique(inf_indices[1])
 
-            n_nonewalkers = len(nonewalkers)
+            n_badwalkers = len(badwalkers)
 
             set_tempered_nested_samples(
                 pos0,
                 nested_samples,
                 parameter_keys,
-                n_nonewalkers,
-                temperatures[nonetemps],
-                set_idxs=np.ix_(nonetemps, nonewalkers),
+                n_badwalkers,
+                temperatures[badtemps],
+                set_idxs=np.ix_(badtemps, badwalkers),
             )
 
             new_extra_init_prior_samples = extra_init_prior_dict.sample(
-                size=(none_indices[0].shape[0])
+                size=(inf_indices[0].shape[0])
             )
             for k in extra_init_prior_dict.keys():
-                pos0[k][none_indices] = new_extra_init_prior_samples[k]
+                pos0[k][inf_indices] = new_extra_init_prior_samples[k]
 
-            test_waveforms[none_indices] = np.array(
-                [
-                    self.waveform_generator.frequency_domain_strain(
-                        parameters=dict(  # concatenate the component masses into the parameter dictionary
-                            {k: pos0[k][i, j] for k in pos0},
-                            **component_masses_as_dict(
-                                pos0["chirp_mass"][i, j], pos0["mass_ratio"][i, j]
-                            ),
-                        )
-                    )
-                    for (i, j) in np.array(none_indices).T
-                ]
-            )
+            for i,j in np.transpose(inf_indices):
+                parameters = { k : pos0[k][i,j] for k in pos0.keys() }
+                likelihood.parameters.update(parameters)
+                test_log_like_ratio[i,j] = likelihood.log_likelihood_ratio()
 
-            none_indices = np.nonzero(test_waveforms == None)  # noqa: E711
+            inf_indices = np.nonzero(test_log_like_ratio == -np.inf)
             tries += 1
 
+        if old_parameters is not None:
+            likelihood.parameters.update(old_parameters)
+        else:
+            likelihood.parameters = None
+        
         logger.info(f"Done, after {tries} tries.")
 
     def setup_initial_points(self):
@@ -251,7 +239,7 @@ class HybridInput(DataAnalysisInput):
 
         gr_parameters = initial_result.search_parameter_keys
 
-        _, complete_priors = self.get_likelihood_and_priors()
+        likelihood, complete_priors = self.get_likelihood_and_priors()
         pos0 = complete_priors.sample((ntemps, nwalkers))
         set_tempered_nested_samples(
             pos0, initial_result.nested_samples, gr_parameters, nwalkers, temperatures
@@ -261,6 +249,7 @@ class HybridInput(DataAnalysisInput):
             self._set_pos0_within_prior(
                 pos0,
                 initial_result.nested_samples,
+                likelihood,
                 gr_parameters,
                 temperatures,
                 nwalkers,
