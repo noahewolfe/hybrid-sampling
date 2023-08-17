@@ -167,7 +167,31 @@ class HybridInput(DataAnalysisInput):
         self, pos0, nested_samples, likelihood, parameter_keys, temperatures, nwalkers
     ):
         """
+        Modify pos0, in place, such that all initial points are within the
+        prior support.
+
+        Parameters
+        ==========
+        pos0: dict
+            Dictionary of initial points; the value at each key is an np.ndarray array
+            shaped like (ntemps, nwalkers)
+        nested_samples: pandas.DataFrame
+            pandas DataFrame of nested samples, indexed by parameter names.
+        likelihood: bilby.gw.likelihood.GravitationalWaveTransient
+            bilby gravitational wave likelihood object that can evaluate
+            the log likelihood ratio at pos0 parameter values.
+        parameter_keys: list
+            List of strings, of the names of the parameters that we want to sample.
+            This may represent a subset of the keys of the samples dictionary.
+        temperatures: np.ndarray or list
+            List or array of temperatures beta (of length we call "ntemps").
+        nwalkers: int
+            Number of walkers in our eventual ensemble of parallel-tempered MCMC chains.
         
+        Returns
+        =======
+        None (this modifies the dictionary samples).
+
         """
         
         logger.info(
