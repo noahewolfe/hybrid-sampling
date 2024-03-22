@@ -2,6 +2,7 @@
 """ Script to perform hybrid analysis based on previous result """
 import os
 import sys
+from copy import deepcopy
 
 import bilby
 import numpy as np
@@ -198,7 +199,7 @@ class HybridInput(DataAnalysisInput):
             "Adjusting pos0 seed samples to fit within prior/overlap constraints"
         )
 
-        old_parameters = likelihood.parameters
+        old_parameters = deepcopy(likelihood.parameters)
 
         ntemps = len(temperatures)
         extra_init_prior_dict = bilby.core.prior.PriorDict(self.extra_initialization)
@@ -241,7 +242,7 @@ class HybridInput(DataAnalysisInput):
             tries += 1
 
         if old_parameters is not None:
-            likelihood.parameters.update(old_parameters)
+            likelihood.parameters = old_parameters
         else:
             likelihood.parameters = None
         
